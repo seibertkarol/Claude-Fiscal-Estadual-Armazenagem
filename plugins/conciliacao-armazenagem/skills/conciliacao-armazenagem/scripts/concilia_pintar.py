@@ -172,26 +172,46 @@ def ref_to_str(v):
     try:    return str(int(float(v)))
     except: return None
 
+def extrair_nf_de_ref_nfw(v):
+    """Extrai NF de referencia NFW no formato '000006751-001' -> 6751."""
+    s = str(v).strip()
+    if '-' not in s: return None
+    parte = s.split('-')[0].lstrip('0')
+    if not parte: return None
+    try: return int(parte)
+    except: return None
+
 p6_retorno_by_nfe = {}
 p6_retorno_valor  = {}
 retorno_idx_doc_sap = {}  # pandas_idx da linha retorno -> doc_sap original
 nfe_to_doc_saps = {}      # nfe -> [lista de doc_saps] (para remessas referenciadas)
+retornos_nfw = 0
 for idx, row in df_p6.iterrows():
     val = row['_valor']
     if pd.isna(val) or val >= 0: continue
     ref = ref_to_str(row.iloc[6])
-    if not ref: continue
-    info = zsd_by_doc.get(ref)
-    if not info: continue
-    try: nfe = int(info['nfe'])
-    except: continue
+    nfe = None
+    if ref:
+        info = zsd_by_doc.get(ref)
+        if info:
+            try: nfe = int(info['nfe'])
+            except: pass
+    if nfe is None:
+        nf_nfw = extrair_nf_de_ref_nfw(row.iloc[6])
+        if nf_nfw is not None:
+            nfe = nf_nfw
+            ref = str(nf_nfw)
+            retornos_nfw += 1
+    if nfe is None: continue
     p6_retorno_by_nfe.setdefault(nfe, []).append(idx)
     p6_retorno_valor[nfe] = p6_retorno_valor.get(nfe, 0.0) + float(val)
     retorno_idx_doc_sap[idx] = ref  # doc_sap desta linha de retorno
     if ref not in nfe_to_doc_saps.get(nfe, []):
         nfe_to_doc_saps.setdefault(nfe, []).append(ref)
 
-print(f"Retornos identificados via ZSD: {len(p6_retorno_by_nfe)}")
+print(f"Retornos identificados via ZSD: {len(p6_retorno_by_nfe) - retornos_nfw}")
+if retornos_nfw:
+    print(f"Retornos identificados via NFW (referencia com hifen): {retornos_nfw}")
 
 # Data de lancamento de cada retorno (coluna K = idx 10), para preencher
 # na coluna J (DATA DO RETORNO) de toda linha que ele referencia
