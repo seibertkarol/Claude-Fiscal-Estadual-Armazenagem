@@ -32,138 +32,63 @@ FILL_ROSA    = PatternFill('solid', fgColor='F2CEEF')   # ZEROU total
 FILL_LARANJA = PatternFill('solid', fgColor='E97132')   # PARCIAL
 FILL_AZUL    = PatternFill('solid', fgColor='467886')   # SEM REMESSA
 FILL_AMARELO = PatternFill('solid', fgColor='FFD700')   # DIVERGENTE: ICMS do XML != valor lancado no SAP
+FILL_VERDE   = PatternFill('solid', fgColor='92D050')   # NF DUPLICADA: mesmo NF em doc_saps diferentes
 FONT_BRANCO  = Font(color='FFFFFF')
 
 # ---------------------------------------------------------------
-# DETECCAO DE ESTADO: a linha 1 da Planilha6 e SEMPRE a linha de total
-# (formula na coluna de valor), igual em todas as planilhas da usuaria —
-# isso NAO e algo que so meu script cria, e o padrao dela. O que varia e:
-#   1. Se a coluna J (DATA DO RETORNO) ja foi inserida numa rodagem anterior
-#   2. Se a linha de total ja tem o texto "TOTAL FILTRADO" (escrito por mim)
-# Detectamos cada coisa separadamente, olhando o conteudo real das celulas,
-# em vez de depender de um texto exato que pode nao estar la.
+# DETECCAO DE ESTADO: o arquivo pode ser "virgem" (primeira rodagem) ou ja
+# ter sido processado antes (tem a linha TOTAL FILTRADO e a coluna DATA DO
+# RETORNO inseridas por uma rodagem anterior nesta MESMA planilha evolutiva).
+# Isso evita duplicar linha/coluna e desalinhar tudo a cada nova rodagem.
 # ---------------------------------------------------------------
 from openpyxl import load_workbook as _peek_wb
 _wb_peek = _peek_wb(ARQUIVO, read_only=True, data_only=True)
-
-def _resolver_aba(nome_esperado):
-    """Acha o nome real da aba ignorando maiusculas/minusculas
-    (ex: planilha pode ter 'ZSD' ou 'zsd')."""
-    for nome in _wb_peek.sheetnames:
-        if nome.strip().lower() == nome_esperado.lower():
-            return nome
-    raise ValueError(
-        f"Aba '{nome_esperado}' nao encontrada. Abas disponiveis: {_wb_peek.sheetnames}"
-    )
-
-try:
-    ABA_PLANILHA6 = _resolver_aba('Planilha6')
-except ValueError:
-    try:
-        ABA_PLANILHA6 = _resolver_aba('razao')
-    except ValueError:
-        ABA_PLANILHA6 = _resolver_aba('PE02C')
-ABA_ZSD       = _resolver_aba('zsd')
-
-_ws_peek = _wb_peek[ABA_PLANILHA6]
-
-# A coluna G (Referencia) tem texto em toda linha de dados. Se a linha 2
-# tiver esse texto e a linha 1 nao, a linha 1 e a linha de total/cabecalho
-# vazio — ou seja, o cabeçalho de verdade esta na linha 2.
-_val_linha1_G = _ws_peek.cell(row=1, column=7).value
-_val_linha2_G = _ws_peek.cell(row=2, column=7).value
-LINHA1_E_TOTAL = (
-    (_val_linha1_G in (None, '')) and isinstance(_val_linha2_G, str) and _val_linha2_G.strip() != ''
-)
-
-# A coluna J (10) ja foi inserida (DATA DO RETORNO) numa rodagem anterior?
-_linha_cabecalho_1based = 2 if LINHA1_E_TOTAL else 1
-_val_col_j = _ws_peek.cell(row=_linha_cabecalho_1based, column=10).value
-# Aceita variacoes de texto ("DATA DO RETORNO", "DATA DE RETORNO", etc) —
-# o importante e que a celula comece com "DATA" e contenha "RETORNO", ja
-# que diferentes planilhas/usuarias podem ter digitado isso de forma levemente
-# diferente.
-COLUNA_J_JA_EXISTE = (
-    isinstance(_val_col_j, str)
-    and 'DATA' in _val_col_j.strip().upper()
-    and 'RETORNO' in _val_col_j.strip().upper()
-)
-
+_p6_name = next((s for s in _wb_peek.sheetnames if s.lower() == 'planilha6'), 'Planilha6')
+_ws_peek = _wb_peek[_p6_name]
+JA_PROCESSADO = (_ws_peek['A1'].value == 'TOTAL FILTRADO')
 _wb_peek.close()
 
-PANDAS_HEADER = 1 if LINHA1_E_TOTAL else 0   # linha do cabecalho real (0-based)
-COL_OFFSET    = 1 if COLUNA_J_JA_EXISTE else 0   # deslocamento das colunas J em diante
-
-# Mantem o nome JA_PROCESSADO para o restante do script (controla insercoes)
-JA_PROCESSADO_LINHA = LINHA1_E_TOTAL
-JA_PROCESSADO_COLUNA = COLUNA_J_JA_EXISTE
-
-USANDO_RAZAO = ABA_PLANILHA6.strip().lower() == 'razao'
+PANDAS_HEADER = 1 if JA_PROCESSADO else 0   # linha do cabecalho real (0-based)
+COL_OFFSET    = 1 if JA_PROCESSADO else 0   # deslocamento das colunas J em diante
 
 COL_REFERENCIA   = 6                  # nunca desloca (fica antes da coluna I)
-if USANDO_RAZAO:
-    COL_DATA_LANC = 9    # col J no razao (Data de lancamento)
-    COL_VALOR     = 15   # col P no razao
-else:
-    COL_DATA_LANC = 10 + COL_OFFSET
-    COL_VALOR     = 17 + COL_OFFSET
+COL_DATA_LANC    = 10 + COL_OFFSET    # K se ja processado, J na primeira vez
+COL_VALOR        = 17 + COL_OFFSET    # S se ja processado, R na primeira vez
 
-print(f"Linha 1 {'JA E a linha de total' if LINHA1_E_TOTAL else 'NAO existe ainda (sera criada)'} | "
-      f"Coluna DATA DO RETORNO {'JA EXISTE' if COLUNA_J_JA_EXISTE else 'NAO existe ainda (sera criada)'}.")
+print(f"Arquivo {'JA PROCESSADO antes' if JA_PROCESSADO else 'NOVO (primeira rodagem)'} "
+      f"— ajustando leitura automaticamente.")
 
 print("Carregando dados...")
-df_p6  = pd.read_excel(ARQUIVO, sheet_name=ABA_PLANILHA6, header=PANDAS_HEADER)
-df_zsd = pd.read_excel(ARQUIVO, sheet_name=ABA_ZSD,       header=0)
+df_p6  = pd.read_excel(ARQUIVO, sheet_name=_p6_name, header=PANDAS_HEADER)
+df_zsd = pd.read_excel(ARQUIVO, sheet_name='zsd',       header=0)
 
 df_p6['_valor'] = pd.to_numeric(df_p6.iloc[:, COL_VALOR], errors='coerce')
 
-COL_NOTA_RET = 24 if USANDO_RAZAO else 8  # col Y no razao, col I no padrao
-print(f"Coluna NOTA DE RETORNO: '{df_p6.columns[COL_NOTA_RET]}'")
+COL_NOTA_RET = 8  # coluna I (0-based) — nunca desloca
+print(f"Coluna NOTA DE RETORNO (I): '{df_p6.columns[COL_NOTA_RET]}'")
 
 # ---------------------------------------------------------------
 # MAPA 1: ZSD doc_sap -> nfe
 # ---------------------------------------------------------------
-
-# Detecta colunas do ZSD pelo nome (robusto para diferentes layouts de exportação)
-def _achar_col(df, *candidatos):
-    """Retorna o índice da primeira coluna cujo nome contenha um dos candidatos."""
-    for cand in candidatos:
-        for i, col in enumerate(df.columns):
-            if cand.lower() in str(col).lower():
-                return i
-    return None
-
-_zsd_col_doc = _achar_col(df_zsd, 'n° documento', 'nº documento', 'n� documento', 'numero documento')
-_zsd_col_nfe = _achar_col(df_zsd, 'nota fiscal eletr', 'número de nota fiscal', 'nfe', 'n° nf', 'nº nf')
-_zsd_col_chave = _achar_col(df_zsd, 'chave acesso', 'chave 44')
-
-# Fallbacks por índice conforme layout conhecido
-if _zsd_col_doc is None:
-    _zsd_col_doc = 2 if USANDO_RAZAO else 4
-if _zsd_col_nfe is None:
-    _zsd_col_nfe = 15 if USANDO_RAZAO else 50
-
-print(f"ZSD mapeado: DOC SAP=col{_zsd_col_doc} | NF=col{_zsd_col_nfe} | Chave=col{_zsd_col_chave}")
-
 zsd_by_doc = {}
+zsd_chave_to_doc = {}
 for _, row in df_zsd.iterrows():
-    try:    doc = str(int(float(str(row.iloc[_zsd_col_doc]))))
-    except: doc = None
-    nfe_val = row.iloc[_zsd_col_nfe]
+    doc = str(int(row.iloc[4])) if pd.notna(row.iloc[4]) else None
     if doc and doc not in zsd_by_doc:
-        zsd_by_doc[doc] = {'nfe': nfe_val, 'doc': doc}
+        zsd_by_doc[doc] = {'nfe': row.iloc[50]}
+    chave = str(row.iloc[14]).strip() if pd.notna(row.iloc[14]) else None
+    if chave and len(chave) == 44 and doc:
+        zsd_chave_to_doc[chave] = doc
 
-# Mapa inverso: NF -> lista de DOC SAPs (para detectar NFs duplicadas)
-nfe_para_docs = {}
+# Detecta NFs duplicadas: mesmo numero de NF em doc_saps diferentes
+nfe_to_docs = {}
 for doc, info in zsd_by_doc.items():
-    try:    nfe = int(info['nfe'])
+    try: nfe = int(info['nfe'])
     except: continue
-    nfe_para_docs.setdefault(nfe, []).append(doc)
-
-# NFs que aparecem em mais de um DOC SAP — serão identificadas pelo DOC SAP na coluna I
-nfe_duplicadas = {nfe for nfe, docs in nfe_para_docs.items() if len(docs) > 1}
+    nfe_to_docs.setdefault(nfe, []).append(doc)
+nfe_duplicadas = {nfe for nfe, docs in nfe_to_docs.items() if len(docs) > 1}
 if nfe_duplicadas:
-    print(f"NFs duplicadas no ZSD (serão preenchidas com DOC SAP): {sorted(nfe_duplicadas)}")
+    print(f"NFs duplicadas detectadas ({len(nfe_duplicadas)}): {sorted(nfe_duplicadas)}")
 
 # ---------------------------------------------------------------
 # MAPA 2: P6 retorno nfe -> indices + valor
@@ -174,8 +99,6 @@ def ref_to_str(v):
 
 p6_retorno_by_nfe = {}
 p6_retorno_valor  = {}
-retorno_idx_doc_sap = {}  # pandas_idx da linha retorno -> doc_sap original
-nfe_to_doc_saps = {}      # nfe -> [lista de doc_saps] (para remessas referenciadas)
 for idx, row in df_p6.iterrows():
     val = row['_valor']
     if pd.isna(val) or val >= 0: continue
@@ -187,9 +110,6 @@ for idx, row in df_p6.iterrows():
     except: continue
     p6_retorno_by_nfe.setdefault(nfe, []).append(idx)
     p6_retorno_valor[nfe] = p6_retorno_valor.get(nfe, 0.0) + float(val)
-    retorno_idx_doc_sap[idx] = ref  # doc_sap desta linha de retorno
-    if ref not in nfe_to_doc_saps.get(nfe, []):
-        nfe_to_doc_saps.setdefault(nfe, []).append(ref)
 
 print(f"Retornos identificados via ZSD: {len(p6_retorno_by_nfe)}")
 
@@ -271,18 +191,6 @@ def extrair_nums_texto(txt):
             pos = i2 + len(pref)
     return nums
 
-def _ordenar_refs_para_alocacao(refs_nums):
-    """
-    Processa remessas EXCLUSIVAS primeiro, e as COMPARTILHADAS (referenciadas
-    por mais de um retorno) por ultimo. Isso evita que um retorno monopolize
-    o saldo inteiro de uma remessa compartilhada so porque foi processado
-    primeiro (por ordem de NF) — ele so consome da remessa compartilhada o
-    que sobrar depois de cobrir tudo que puder com remessas exclusivas,
-    deixando o restante correto disponivel para o outro retorno que tambem
-    precisa dela.
-    """
-    return sorted(refs_nums, key=lambda n: 1 if n in compartilhadas else 0)
-
 def buscar_remessas(refs_nums, val_retorno_abs):
     """
     Busca remessas com saldo disponivel.
@@ -291,7 +199,7 @@ def buscar_remessas(refs_nums, val_retorno_abs):
     """
     idxs, soma, vistos, refs_found = [], 0.0, set(), set()
     restante = val_retorno_abs
-    for n in _ordenar_refs_para_alocacao(refs_nums):
+    for n in refs_nums:
         saldo = saldo_remessa.get(n, 0.0)
         if saldo <= 0: continue
         for idx in p6_remessa_by_num.get(n, []):
@@ -307,10 +215,7 @@ def buscar_remessas(refs_nums, val_retorno_abs):
     return idxs, soma, refs_found
 
 def consumir_saldo(refs_nums, val_retorno_abs, nnf_retorno):
-    """Desconta o saldo e registra quem consumiu cada remessa.
-    Usa a mesma ordem (exclusivas primeiro) que buscar_remessas, para o
-    valor efetivamente descontado ficar consistente com o que foi casado."""
-    refs_nums = _ordenar_refs_para_alocacao(refs_nums)
+    """Desconta o saldo e registra quem consumiu cada remessa."""
     restante = val_retorno_abs
     for n in refs_nums:
         saldo = saldo_remessa.get(n, 0.0)
@@ -322,84 +227,64 @@ def consumir_saldo(refs_nums, val_retorno_abs, nnf_retorno):
         restante -= usado
         if restante <= 0: break
 
-# Mapa ZSD: chave44 -> doc_sap (para identificar qual DOC SAP pertence a cada XML)
-zsd_chave_to_doc_sap = {}
-if _zsd_col_chave is not None:
-    for _, row in df_zsd.iterrows():
-        chave = str(row.iloc[_zsd_col_chave]).strip()
-        try: doc = str(int(float(str(row.iloc[_zsd_col_doc]))))
-        except: doc = None
-        if doc and len(chave) == 44:
-            zsd_chave_to_doc_sap[chave] = doc
-
 # ---------------------------------------------------------------
 # PRE-PROCESSAMENTO: le todos os XMLs
-# Guarda por chave44 (sempre único) E por nnf (pode sobrescrever em NFs duplicadas)
 # ---------------------------------------------------------------
 refs_por_retorno = {}
 xml_roots = {}
-xml_roots_by_chave = {}   # chave44 -> root (nunca sobrescreve)
-xml_chave_to_nnf  = {}    # chave44 -> nnf
-nnf_to_chaves     = {}    # nnf -> [chave44, ...] (lista de XMLs com esse NF)
-nnf_vicms_xml     = {}
+nnf_vicms_xml = {}
+remessa_nf_para_doc_sap = {}
 
 for fname in sorted(os.listdir(XML_DIR)):
     if not fname.endswith('.xml'): continue
-    try: root = ET.parse(os.path.join(XML_DIR, fname)).getroot()
-    except: continue
+    root = ET.parse(os.path.join(XML_DIR, fname)).getroot()
     nnf_el = root.find('.//{%s}nNF' % NS)
     if nnf_el is None: continue
     nnf = int(nnf_el.text)
-    chave44 = fname[:44]
 
-    # Sempre guarda por chave (único)
-    if len(chave44) == 44:
-        xml_roots_by_chave[chave44] = root
-        xml_chave_to_nnf[chave44]   = nnf
-        nnf_to_chaves.setdefault(nnf, []).append(chave44)
+    refs_c1 = set()
+    for el in root.findall('.//{%s}refNFe' % NS):
+        chave = (el.text or '').strip()
+        if len(chave) == 44:
+            try: refs_c1.add(int(chave[25:34]))
+            except: pass
 
-    # Por NF: usa o primeiro encontrado (o algoritmo principal usa este)
-    if nnf not in xml_roots:
-        refs = set()
-        for el in root.findall('.//{%s}refNFe' % NS):
-            chave = (el.text or '').strip()
-            if len(chave) == 44:
-                try: refs.add(int(chave[25:34]))
-                except: pass
-        refs_por_retorno[nnf] = refs
-        xml_roots[nnf] = root
+    refs_por_retorno[nnf] = refs_c1
+    xml_roots[nnf] = root
 
     vicms_el = root.find('.//{%s}ICMSTot/{%s}vICMS' % (NS, NS))
     if vicms_el is not None and vicms_el.text:
         try: nnf_vicms_xml[nnf] = float(vicms_el.text)
         except: pass
 
-# Para cada retorno que tem NF duplicada no ZSD:
-# percorre seu XML (pela chave44 do ZSD) e mapeia remessa_nf -> doc_sap
-# Assim sabemos exatamente qual DOC SAP referenciou qual remessa
-remessa_nf_para_doc_sap = {}  # remessa_nf -> doc_sap do retorno que a referenciou via C1
+    # Para NFs duplicadas: vincula cada remessa ao doc_sap via chave de acesso
+    if nnf in nfe_duplicadas:
+        inf = root.find('.//{%s}infNFe' % NS)
+        xml_chave = None
+        if inf is not None:
+            id_attr = inf.get('Id', '')
+            if id_attr.startswith('NFe') and len(id_attr) == 47:
+                xml_chave = id_attr[3:]
+        if not xml_chave:
+            ch_el = root.find('.//{%s}chNFe' % NS)
+            if ch_el is not None and ch_el.text:
+                xml_chave = ch_el.text.strip()
 
-for _, row in df_zsd.iterrows():
-    try:    doc = str(int(float(str(row.iloc[_zsd_col_doc]))))
-    except: continue
-    try:    nfe = int(float(str(row.iloc[_zsd_col_nfe])))
-    except: continue
-    if nfe not in nfe_duplicadas: continue  # só processa NFs duplicadas
-    chave44 = str(row.iloc[_zsd_col_chave]).strip() if _zsd_col_chave is not None else ''
-    if len(chave44) != 44: continue
-    root = xml_roots_by_chave.get(chave44)
-    if root is None: continue
-    # C1: extrai remessas referenciadas por este XML específico
-    for el in root.findall('.//{%s}refNFe' % NS):
-        chave_ref = (el.text or '').strip()
-        if len(chave_ref) == 44:
-            try:
-                nf_rem = int(chave_ref[25:34])
-                remessa_nf_para_doc_sap[nf_rem] = doc  # doc_sap deste retorno
-            except: pass
+        doc_sap_xml = zsd_chave_to_doc.get(xml_chave) if xml_chave else None
+
+        if doc_sap_xml:
+            all_refs = set(refs_c1)
+            for tag in ['infAdProd', 'xPed']:
+                for el in root.findall('.//{%s}%s' % (NS, tag)):
+                    all_refs |= extrair_nums_texto(el.text or '')
+            for tag in ['infCpl', 'xTexto']:
+                for el in root.findall('.//{%s}%s' % (NS, tag)):
+                    all_refs |= extrair_nums_texto(el.text or '')
+            for ref_nf in all_refs:
+                remessa_nf_para_doc_sap[ref_nf] = doc_sap_xml
 
 if remessa_nf_para_doc_sap:
-    print(f"Remessas com DOC SAP específico mapeado: {len(remessa_nf_para_doc_sap)}")
+    print(f"Mapa remessa->doc_sap construido: {len(remessa_nf_para_doc_sap)} remessas vinculadas")
 
 # Detecta remessas compartilhadas
 retornos_por_remessa = {}
@@ -555,7 +440,7 @@ for nnf in xmls_ordenados:
 # ---------------------------------------------------------------
 print("Passo 2/3: Algoritmo iterativo de cores (ponto fixo)...")
 
-FILL_MAP = {'rosa': FILL_ROSA, 'laranja': FILL_LARANJA, 'azul': FILL_AZUL, 'amarelo': FILL_AMARELO}
+FILL_MAP = {'rosa': FILL_ROSA, 'laranja': FILL_LARANJA, 'azul': FILL_AZUL, 'amarelo': FILL_AMARELO, 'verde': FILL_VERDE}
 pintura_p6 = {}   # pandas_idx -> (cor, nnf, criterio)
 
 # Estado inicial de cor dos retornos (pelo status da conciliacao)
@@ -633,6 +518,18 @@ for nnf, cor in cor_retorno.items():
 if qtd_remessas_amarelas:
     print(f"  {qtd_remessas_amarelas} remessas marcadas em amarelo (referenciadas por retorno divergente).")
 
+# Override: NFs duplicadas ficam VERDES (revisao manual)
+cnt_verde_override = 0
+for nfe in nfe_duplicadas:
+    if nfe in cor_retorno:
+        cor_retorno[nfe] = 'verde'
+        cnt_verde_override += 1
+    for idx in ret_rem_idxs.get(nfe, []):
+        if idx in cor_remessa:
+            cor_remessa[idx] = 'verde'
+if cnt_verde_override:
+    print(f"  {cnt_verde_override} retornos de NFs duplicadas marcados em VERDE.")
+
 # Constroi pintura_p6 final
 for nnf, cor in cor_retorno.items():
     for idx in p6_retorno_by_nfe.get(nnf, []):
@@ -656,19 +553,17 @@ for idx, cor in cor_remessa.items():
 print(f"Aplicando cores em {len(pintura_p6)} linhas da Planilha6...")
 
 wb = load_workbook(ARQUIVO)
-ws = wb[ABA_PLANILHA6]
+_p6_name_wb = next((s for s in wb.sheetnames if s.lower() == 'planilha6'), 'Planilha6')
+ws = wb[_p6_name_wb]
 
-# Insere a coluna J (DATA DO RETORNO) e a linha de total SOMENTE se ainda
-# nao existirem — e ANTES de pintar, para que os calculos de linha/coluna
-# usados na pintura ja reflitam o layout final. As duas coisas sao
-# verificadas de forma INDEPENDENTE (a planilha pode ja ter uma linha de
-# total no padrao da usuaria sem ainda ter a coluna J, por exemplo).
-if not JA_PROCESSADO_COLUNA:
+# Insere a coluna J (DATA DO RETORNO) e a linha TOTAL FILTRADO SOMENTE na
+# primeira rodagem — e ANTES de pintar, para que os calculos de linha/coluna
+# usados na pintura ja reflitam o layout final. Se o arquivo ja foi
+# processado antes, ambos ja existem — nao inserir de novo (evita duplicar
+# linha/coluna a cada rodagem na mesma planilha evolutiva).
+if not JA_PROCESSADO:
     ws.insert_cols(10)
-    _header_row_atual = 2 if JA_PROCESSADO_LINHA else 1
-    ws.cell(row=_header_row_atual, column=10, value='DATA DO RETORNO')
-
-if not JA_PROCESSADO_LINHA:
+    ws.cell(row=1, column=10, value='DATA DO RETORNO')
     ws.insert_rows(1)
 
 # O resultado final SEMPRE tem 1 linha TOTAL FILTRADO no topo (inserida agora
@@ -694,26 +589,23 @@ def fmt_data(d):
 for pandas_idx, nfs_list in nota_ret_por_rem.items():
     if pandas_idx not in pintura_p6: continue
     excel_row = pandas_idx + EXCEL_ROW_BASE
-    val_linha = df_p6.at[pandas_idx, '_valor']
-    eh_retorno = pd.notna(val_linha) and val_linha < 0
+    cor = pintura_p6[pandas_idx][0]
 
-    ids_col_i = []
-    for n in sorted(set(nfs_list)):
-        if n in nfe_duplicadas:
-            if eh_retorno:
-                # Linha de retorno: usa o DOC SAP da própria linha (col G)
-                ids_col_i.append(retorno_idx_doc_sap.get(pandas_idx, str(n)))
-            else:
-                # Linha de remessa (NF n): usa o DOC SAP que a referenciou via C1
-                # A NF já está em 'n', procura quem referenciou essa NF específica
-                doc_sap_especifico = remessa_nf_para_doc_sap.get(n)
-                if doc_sap_especifico:
-                    ids_col_i.append(doc_sap_especifico)
-                else:
-                    ids_col_i.append(str(n))
+    if cor == 'verde':
+        val = df_p6.at[pandas_idx, '_valor']
+        if pd.notna(val) and val < 0:
+            doc = ref_to_str(df_p6.iloc[pandas_idx, COL_REFERENCIA])
+            valor_col_i = doc if doc else ', '.join(str(n) for n in sorted(set(nfs_list)))
         else:
-            ids_col_i.append(str(n))
-    valor_col_i = ', '.join(ids_col_i)
+            nf_num_remessa = extrair_num(str(df_p6.iloc[pandas_idx, COL_REFERENCIA]))
+            doc = remessa_nf_para_doc_sap.get(nf_num_remessa)
+            if doc:
+                valor_col_i = doc
+            else:
+                valor_col_i = ', '.join(str(n) for n in sorted(set(nfs_list)))
+    else:
+        valor_col_i = ', '.join(str(n) for n in sorted(set(nfs_list)))
+
     ws.cell(row=excel_row, column=COL_I_EXCEL, value=valor_col_i)
 
     # Coluna J (DATA DO RETORNO): data de lancamento da(s) nota(s) de retorno
@@ -736,7 +628,7 @@ for pandas_idx, nfs_list in nota_ret_por_rem.items():
 ws['A1'] = 'TOTAL FILTRADO'
 
 from openpyxl.utils import get_column_letter
-col_valor_letra = get_column_letter(COL_VALOR + 1 + (0 if JA_PROCESSADO_COLUNA else 1))
+col_valor_letra = get_column_letter(COL_VALOR + 1 + (0 if JA_PROCESSADO else 1))
 ultima_linha = ws.max_row
 formula_cell = f'{col_valor_letra}1'
 ws[formula_cell] = f'=SUBTOTAL(9,{col_valor_letra}3:{col_valor_letra}{ultima_linha})'
@@ -749,8 +641,8 @@ for col in range(1, ws.max_column + 1):
 ws[formula_cell].number_format = '#,##0.00'
 
 # Conta remessas/retornos por cor (precisa ser antes do save, para escrever na aba Resumo)
-cnt_rem = {'rosa': 0, 'laranja': 0, 'azul': 0, 'amarelo': 0}
-cnt_ret = {'rosa': 0, 'laranja': 0, 'azul': 0, 'amarelo': 0}
+cnt_rem = {'rosa': 0, 'laranja': 0, 'azul': 0, 'amarelo': 0, 'verde': 0}
+cnt_ret = {'rosa': 0, 'laranja': 0, 'azul': 0, 'amarelo': 0, 'verde': 0}
 for pandas_idx, (cor, nnf, _) in pintura_p6.items():
     val = df_p6.at[pandas_idx, '_valor']
     if pd.notna(val):
@@ -759,7 +651,7 @@ for pandas_idx, (cor, nnf, _) in pintura_p6.items():
 
 # Soma monetaria por cor (mesma logica do diagnostico mais abaixo)
 soma_rosa_rem = soma_rosa_ret = soma_laranja_rem = soma_laranja_ret = 0.0
-soma_amarelo_rem = soma_amarelo_ret = 0.0
+soma_amarelo_rem = soma_amarelo_ret = soma_verde_rem = soma_verde_ret = 0.0
 for pandas_idx, (cor, nnf, _) in pintura_p6.items():
     val = df_p6.at[pandas_idx, '_valor']
     if pd.isna(val): continue
@@ -772,6 +664,9 @@ for pandas_idx, (cor, nnf, _) in pintura_p6.items():
     elif cor == 'amarelo':
         if val > 0: soma_amarelo_rem += val
         else:       soma_amarelo_ret += val
+    elif cor == 'verde':
+        if val > 0: soma_verde_rem += val
+        else:       soma_verde_ret += val
 
 # ---------------------------------------------------------------
 # ABA "RESUMO" — contagem desta rodagem (igual ao VBA antigo)
@@ -787,6 +682,7 @@ fill_rosa   = PatternFill('solid', fgColor='F2CEEF')
 fill_laranja= PatternFill('solid', fgColor='E97132')
 fill_azul   = PatternFill('solid', fgColor='467886')
 fill_amarelo= PatternFill('solid', fgColor='FFD700')
+fill_verde  = PatternFill('solid', fgColor='92D050')
 
 linhas_resumo = [
     ('RESUMO DA CONCILIAÇÃO', '', None),
@@ -796,10 +692,12 @@ linhas_resumo = [
     ('Remessas ROSA (100% zerado)', cnt_rem['rosa'], fill_rosa),
     ('Remessas LARANJA (parcial/incompleto)', cnt_rem['laranja'], fill_laranja),
     ('Remessas AMARELO (retorno c/ ICMS divergente)', cnt_rem['amarelo'], fill_amarelo),
+    ('Remessas VERDE (NF duplicada, revisão manual)', cnt_rem['verde'], fill_verde),
     ('Retornos ROSA (ZEROU)', cnt_ret['rosa'], fill_rosa),
     ('Retornos LARANJA (PARCIAL)', cnt_ret['laranja'], fill_laranja),
     ('Retornos AZUL (sem remessa)', cnt_ret['azul'], fill_azul),
     ('Retornos AMARELO (ICMS do XML != lançado no SAP)', cnt_ret['amarelo'], fill_amarelo),
+    ('Retornos VERDE (NF duplicada, revisão manual)', cnt_ret['verde'], fill_verde),
     ('', '', None),
     ('TOTAL DE LINHAS PINTADAS', len(pintura_p6), None),
     ('', '', None),
@@ -807,6 +705,7 @@ linhas_resumo = [
     ('Saldo líquido ROSA (deve ser ~R$0)', round(soma_rosa_rem + soma_rosa_ret, 2), None),
     ('Saldo líquido LARANJA (em aberto)', round(soma_laranja_rem + soma_laranja_ret, 2), None),
     ('Saldo líquido AMARELO (revisar lançamento)', round(soma_amarelo_rem + soma_amarelo_ret, 2), None),
+    ('Saldo líquido VERDE (NF duplicada)', round(soma_verde_rem + soma_verde_ret, 2), None),
 ]
 
 for i, (label, valor, fill) in enumerate(linhas_resumo, start=1):
@@ -924,6 +823,7 @@ print('RESUMO DAS REMESSAS PINTADAS:')
 print(f'  Rosa    (100% zerado por retornos ZEROU): {cnt_rem["rosa"]}')
 print(f'  Laranja (parcial ou retorno incompleto):  {cnt_rem["laranja"]}')
 print(f'  Amarelo (retorno c/ ICMS divergente):     {cnt_rem["amarelo"]}')
+print(f'  Verde   (NF duplicada, revisao manual):   {cnt_rem["verde"]}')
 print()
 print(f'  Total linhas pintadas: {len(pintura_p6)}')
 print()
@@ -933,6 +833,7 @@ print('    1. Todo seu valor foi consumido (saldo = 0)')
 print('    2. TODOS os retornos que a referenciam sao ZEROU')
 print('    3. O ICMS do XML do(s) retorno(s) bate com o valor lancado no SAP')
 print('  Caso contrario: LARANJA (incompleto) ou AMARELO (ICMS divergente, revisar lancamento)')
+print('  NFs DUPLICADAS (mesmo NF em doc_saps diferentes) ficam VERDE para revisao manual.')
 print()
 print('Filtrar pela cor ROSA na Planilha6 deve resultar em soma = 0.')
 print()
@@ -951,7 +852,11 @@ print(f'  AMARELO remessas:            R$ {soma_amarelo_rem:>15,.2f}')
 print(f'  AMARELO retornos:            R$ {soma_amarelo_ret:>15,.2f}')
 print(f'  AMARELO saldo liquido:       R$ {(soma_amarelo_rem + soma_amarelo_ret):>15,.2f}  <-- revisar lancamento')
 print()
-saldo_total = soma_rosa_rem + soma_rosa_ret + soma_laranja_rem + soma_laranja_ret + soma_amarelo_rem + soma_amarelo_ret
+print(f'  VERDE  remessas:             R$ {soma_verde_rem:>15,.2f}')
+print(f'  VERDE  retornos:             R$ {soma_verde_ret:>15,.2f}')
+print(f'  VERDE  saldo liquido:        R$ {(soma_verde_rem + soma_verde_ret):>15,.2f}  <-- NF duplicada, revisao manual')
+print()
+saldo_total = soma_rosa_rem + soma_rosa_ret + soma_laranja_rem + soma_laranja_ret + soma_amarelo_rem + soma_amarelo_ret + soma_verde_rem + soma_verde_ret
 print(f'  TOTAL pintado (rem+ret):     R$ {saldo_total:>15,.2f}')
 if abs(soma_rosa_rem + soma_rosa_ret) < 1.0:
     print('  [OK] Rosa balanceado — filtro rosa soma ~R$0')
