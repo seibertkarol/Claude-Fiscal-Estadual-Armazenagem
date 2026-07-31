@@ -733,8 +733,8 @@ for pandas_idx, nfs_list in nota_ret_por_rem.items():
     cor_linha = pintura_p6[pandas_idx][0] if pandas_idx in pintura_p6 else None
     if cor_linha == 'verde':
         if eh_retorno:
-            doc = ref_to_str(row.iloc[6])
-            valor_col_i = doc if doc else ', '.join(str(n) for n in sorted(set(nfs_list)))
+            doc = retorno_idx_doc_sap.get(pandas_idx)
+            valor_col_i = doc if doc else ref_to_str(df_p6.iloc[pandas_idx, 6]) or ', '.join(str(n) for n in sorted(set(nfs_list)))
         else:
             nf_num_remessa = extrair_num(str(df_p6.iloc[pandas_idx, 6]))
             doc = remessa_nf_para_doc_sap.get(nf_num_remessa)
