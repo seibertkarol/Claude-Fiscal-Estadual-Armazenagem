@@ -1003,7 +1003,11 @@ print(f'  AMARELO remessas:            R$ {soma_amarelo_rem:>15,.2f}')
 print(f'  AMARELO retornos:            R$ {soma_amarelo_ret:>15,.2f}')
 print(f'  AMARELO saldo liquido:       R$ {(soma_amarelo_rem + soma_amarelo_ret):>15,.2f}  <-- revisar lancamento')
 print()
-saldo_total = soma_rosa_rem + soma_rosa_ret + soma_laranja_rem + soma_laranja_ret + soma_amarelo_rem + soma_amarelo_ret
+print(f'  VERDE  remessas:             R$ {soma_verde_rem:>15,.2f}')
+print(f'  VERDE  retornos:             R$ {soma_verde_ret:>15,.2f}')
+print(f'  VERDE  saldo liquido:        R$ {(soma_verde_rem + soma_verde_ret):>15,.2f}  <-- NF duplicada, revisao manual')
+print()
+saldo_total = soma_rosa_rem + soma_rosa_ret + soma_laranja_rem + soma_laranja_ret + soma_amarelo_rem + soma_amarelo_ret + soma_verde_rem + soma_verde_ret
 print(f'  TOTAL pintado (rem+ret):     R$ {saldo_total:>15,.2f}')
 if abs(soma_rosa_rem + soma_rosa_ret) < 1.0:
     print('  [OK] Rosa balanceado — filtro rosa soma ~R$0')
