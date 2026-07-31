@@ -32,6 +32,7 @@ FILL_ROSA    = PatternFill('solid', fgColor='F2CEEF')   # ZEROU total
 FILL_LARANJA = PatternFill('solid', fgColor='E97132')   # PARCIAL
 FILL_AZUL    = PatternFill('solid', fgColor='467886')   # SEM REMESSA
 FILL_AMARELO = PatternFill('solid', fgColor='FFD700')   # DIVERGENTE: ICMS do XML != valor lancado no SAP
+FILL_VERDE   = PatternFill('solid', fgColor='92D050')   # NF DUPLICADA: mesmo NF em doc_saps diferentes
 FONT_BRANCO  = Font(color='FFFFFF')
 
 # ---------------------------------------------------------------
