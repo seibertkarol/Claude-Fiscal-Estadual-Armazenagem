@@ -792,8 +792,8 @@ for col in range(1, ws.max_column + 1):
 ws[formula_cell].number_format = '#,##0.00'
 
 # Conta remessas/retornos por cor (precisa ser antes do save, para escrever na aba Resumo)
-cnt_rem = {'rosa': 0, 'laranja': 0, 'azul': 0, 'amarelo': 0}
-cnt_ret = {'rosa': 0, 'laranja': 0, 'azul': 0, 'amarelo': 0}
+cnt_rem = {'rosa': 0, 'laranja': 0, 'azul': 0, 'amarelo': 0, 'verde': 0}
+cnt_ret = {'rosa': 0, 'laranja': 0, 'azul': 0, 'amarelo': 0, 'verde': 0}
 for pandas_idx, (cor, nnf, _) in pintura_p6.items():
     val = df_p6.at[pandas_idx, '_valor']
     if pd.notna(val):
