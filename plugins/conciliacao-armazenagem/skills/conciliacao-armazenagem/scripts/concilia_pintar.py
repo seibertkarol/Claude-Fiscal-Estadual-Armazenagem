@@ -511,7 +511,7 @@ for nnf in xmls_ordenados:
     # marcamos como DIVERGENTE_ICMS (cor amarela) para revisao manual.
     TOLERANCIA_ICMS = 0.10  # ate 10 centavos de diferenca e considerado igual
     vicms_xml = nnf_vicms_xml.get(nnf)
-    if vicms_xml is not None and vicms_xml > 0.01 and abs(vicms_xml - val_ret_abs) > TOLERANCIA_ICMS:
+    if vicms_xml is not None and vicms_xml > 0.05 and abs(vicms_xml - val_ret_abs) > TOLERANCIA_ICMS:
         status = 'DIVERGENTE_ICMS'
         cnt.setdefault('DIVERGENTE_ICMS', 0)
         cnt['DIVERGENTE_ICMS'] += 1
