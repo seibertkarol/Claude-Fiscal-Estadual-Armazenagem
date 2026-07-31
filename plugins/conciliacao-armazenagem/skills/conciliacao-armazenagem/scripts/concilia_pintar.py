@@ -730,23 +730,33 @@ for pandas_idx, nfs_list in nota_ret_por_rem.items():
     val_linha = df_p6.at[pandas_idx, '_valor']
     eh_retorno = pd.notna(val_linha) and val_linha < 0
 
-    ids_col_i = []
-    for n in sorted(set(nfs_list)):
-        if n in nfe_duplicadas:
-            if eh_retorno:
-                # Linha de retorno: usa o DOC SAP da própria linha (col G)
-                ids_col_i.append(retorno_idx_doc_sap.get(pandas_idx, str(n)))
-            else:
-                # Linha de remessa (NF n): usa o DOC SAP que a referenciou via C1
-                # A NF já está em 'n', procura quem referenciou essa NF específica
-                doc_sap_especifico = remessa_nf_para_doc_sap.get(n)
-                if doc_sap_especifico:
-                    ids_col_i.append(doc_sap_especifico)
-                else:
-                    ids_col_i.append(str(n))
+    cor_linha = pintura_p6[pandas_idx][0] if pandas_idx in pintura_p6 else None
+    if cor_linha == 'verde':
+        if eh_retorno:
+            doc = ref_to_str(row.iloc[6])
+            valor_col_i = doc if doc else ', '.join(str(n) for n in sorted(set(nfs_list)))
         else:
-            ids_col_i.append(str(n))
-    valor_col_i = ', '.join(ids_col_i)
+            nf_num_remessa = extrair_num(str(df_p6.iloc[pandas_idx, 6]))
+            doc = remessa_nf_para_doc_sap.get(nf_num_remessa)
+            if doc:
+                valor_col_i = doc
+            else:
+                valor_col_i = ', '.join(str(n) for n in sorted(set(nfs_list)))
+    else:
+        ids_col_i = []
+        for n in sorted(set(nfs_list)):
+            if n in nfe_duplicadas:
+                if eh_retorno:
+                    ids_col_i.append(retorno_idx_doc_sap.get(pandas_idx, str(n)))
+                else:
+                    doc_sap_especifico = remessa_nf_para_doc_sap.get(n)
+                    if doc_sap_especifico:
+                        ids_col_i.append(doc_sap_especifico)
+                    else:
+                        ids_col_i.append(str(n))
+            else:
+                ids_col_i.append(str(n))
+        valor_col_i = ', '.join(ids_col_i)
     ws.cell(row=excel_row, column=COL_I_EXCEL, value=valor_col_i)
 
     # Coluna J (DATA DO RETORNO): data de lancamento da(s) nota(s) de retorno
