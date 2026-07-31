@@ -833,6 +833,7 @@ fill_rosa   = PatternFill('solid', fgColor='F2CEEF')
 fill_laranja= PatternFill('solid', fgColor='E97132')
 fill_azul   = PatternFill('solid', fgColor='467886')
 fill_amarelo= PatternFill('solid', fgColor='FFD700')
+fill_verde  = PatternFill('solid', fgColor='92D050')
 
 linhas_resumo = [
     ('RESUMO DA CONCILIAÇÃO', '', None),
