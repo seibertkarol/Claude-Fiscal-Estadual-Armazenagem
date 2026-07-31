@@ -654,6 +654,18 @@ for nnf, cor in cor_retorno.items():
 if qtd_remessas_amarelas:
     print(f"  {qtd_remessas_amarelas} remessas marcadas em amarelo (referenciadas por retorno divergente).")
 
+# Override: NFs duplicadas ficam VERDES (revisao manual)
+cnt_verde_override = 0
+for nfe in nfe_duplicadas:
+    if nfe in cor_retorno:
+        cor_retorno[nfe] = 'verde'
+        cnt_verde_override += 1
+    for idx in ret_rem_idxs.get(nfe, []):
+        if idx in cor_remessa:
+            cor_remessa[idx] = 'verde'
+if cnt_verde_override:
+    print(f"  {cnt_verde_override} retornos de NFs duplicadas marcados em VERDE.")
+
 # Constroi pintura_p6 final
 for nnf, cor in cor_retorno.items():
     for idx in p6_retorno_by_nfe.get(nnf, []):
