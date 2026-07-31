@@ -187,6 +187,8 @@ p6_retorno_valor  = {}
 retorno_idx_doc_sap = {}  # pandas_idx da linha retorno -> doc_sap original
 nfe_to_doc_saps = {}      # nfe -> [lista de doc_saps] (para remessas referenciadas)
 retornos_nfw = 0
+retornos_ref_puro = 0
+retornos_texto = 0
 for idx, row in df_p6.iterrows():
     val = row['_valor']
     if pd.isna(val) or val >= 0: continue
@@ -203,6 +205,26 @@ for idx, row in df_p6.iterrows():
             nfe = nf_nfw
             ref = str(nf_nfw)
             retornos_nfw += 1
+    if nfe is None and ref:
+        try:
+            nfe = int(ref)
+            retornos_ref_puro += 1
+        except:
+            pass
+    if nfe is None:
+        ref_texto = str(row.iloc[6]).strip()
+        m = re.search(r'\b(\d{3,6})\b', ref_texto)
+        if m:
+            nfe = int(m.group(1))
+            ref = str(nfe)
+            retornos_texto += 1
+        else:
+            texto_col = str(row.iloc[5]).strip()
+            m2 = re.search(r'(?:NF[E]?\s*|RETORNO\s*)(\d[\d.]*\d)', texto_col, re.IGNORECASE)
+            if m2:
+                nfe = int(m2.group(1).replace('.', ''))
+                ref = str(nfe)
+                retornos_texto += 1
     if nfe is None: continue
     p6_retorno_by_nfe.setdefault(nfe, []).append(idx)
     p6_retorno_valor[nfe] = p6_retorno_valor.get(nfe, 0.0) + float(val)
@@ -210,9 +232,13 @@ for idx, row in df_p6.iterrows():
     if ref not in nfe_to_doc_saps.get(nfe, []):
         nfe_to_doc_saps.setdefault(nfe, []).append(ref)
 
-print(f"Retornos identificados via ZSD: {len(p6_retorno_by_nfe) - retornos_nfw}")
+print(f"Retornos identificados via ZSD: {len(p6_retorno_by_nfe) - retornos_nfw - retornos_ref_puro - retornos_texto}")
 if retornos_nfw:
     print(f"Retornos identificados via NFW (referencia com hifen): {retornos_nfw}")
+if retornos_ref_puro:
+    print(f"Retornos identificados via referencia NF pura (sem doc_sap): {retornos_ref_puro}")
+if retornos_texto:
+    print(f"Retornos identificados via texto da referencia/descricao: {retornos_texto}")
 
 # Data de lancamento de cada retorno (coluna K = idx 10), para preencher
 # na coluna J (DATA DO RETORNO) de toda linha que ele referencia
