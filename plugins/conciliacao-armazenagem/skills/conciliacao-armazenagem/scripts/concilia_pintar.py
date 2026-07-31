@@ -843,6 +843,7 @@ linhas_resumo = [
     ('Remessas ROSA (100% zerado)', cnt_rem['rosa'], fill_rosa),
     ('Remessas LARANJA (parcial/incompleto)', cnt_rem['laranja'], fill_laranja),
     ('Remessas AMARELO (retorno c/ ICMS divergente)', cnt_rem['amarelo'], fill_amarelo),
+    ('Remessas VERDE (NF duplicada, revisão manual)', cnt_rem['verde'], fill_verde),
     ('Retornos ROSA (ZEROU)', cnt_ret['rosa'], fill_rosa),
     ('Retornos LARANJA (PARCIAL)', cnt_ret['laranja'], fill_laranja),
     ('Retornos AZUL (sem remessa)', cnt_ret['azul'], fill_azul),
