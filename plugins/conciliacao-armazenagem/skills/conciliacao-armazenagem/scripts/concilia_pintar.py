@@ -734,7 +734,17 @@ for pandas_idx, nfs_list in nota_ret_por_rem.items():
     if cor_linha == 'verde':
         if eh_retorno:
             doc = retorno_idx_doc_sap.get(pandas_idx)
-            valor_col_i = doc if doc else ref_to_str(df_p6.iloc[pandas_idx, 6]) or ', '.join(str(n) for n in sorted(set(nfs_list)))
+            if not doc or doc not in zsd_by_doc:
+                for nfe_v in sorted(set(nfs_list)):
+                    for rem_idx in ret_rem_idxs.get(nfe_v, []):
+                        rem_nf = extrair_num(str(df_p6.iloc[rem_idx, 6]))
+                        rem_doc = remessa_nf_para_doc_sap.get(rem_nf)
+                        if rem_doc:
+                            doc = rem_doc
+                            break
+                    if doc and doc in zsd_by_doc:
+                        break
+            valor_col_i = doc if doc else ', '.join(str(n) for n in sorted(set(nfs_list)))
         else:
             nf_num_remessa = extrair_num(str(df_p6.iloc[pandas_idx, 6]))
             doc = remessa_nf_para_doc_sap.get(nf_num_remessa)
