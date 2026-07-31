@@ -848,6 +848,7 @@ linhas_resumo = [
     ('Retornos LARANJA (PARCIAL)', cnt_ret['laranja'], fill_laranja),
     ('Retornos AZUL (sem remessa)', cnt_ret['azul'], fill_azul),
     ('Retornos AMARELO (ICMS do XML != lançado no SAP)', cnt_ret['amarelo'], fill_amarelo),
+    ('Retornos VERDE (NF duplicada, revisão manual)', cnt_ret['verde'], fill_verde),
     ('', '', None),
     ('TOTAL DE LINHAS PINTADAS', len(pintura_p6), None),
     ('', '', None),
@@ -855,6 +856,7 @@ linhas_resumo = [
     ('Saldo líquido ROSA (deve ser ~R$0)', round(soma_rosa_rem + soma_rosa_ret, 2), None),
     ('Saldo líquido LARANJA (em aberto)', round(soma_laranja_rem + soma_laranja_ret, 2), None),
     ('Saldo líquido AMARELO (revisar lançamento)', round(soma_amarelo_rem + soma_amarelo_ret, 2), None),
+    ('Saldo líquido VERDE (NF duplicada)', round(soma_verde_rem + soma_verde_ret, 2), None),
 ]
 
 for i, (label, valor, fill) in enumerate(linhas_resumo, start=1):
