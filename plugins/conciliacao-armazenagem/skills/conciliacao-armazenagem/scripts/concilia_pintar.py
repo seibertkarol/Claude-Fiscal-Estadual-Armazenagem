@@ -815,6 +815,9 @@ for pandas_idx, (cor, nnf, _) in pintura_p6.items():
     elif cor == 'amarelo':
         if val > 0: soma_amarelo_rem += val
         else:       soma_amarelo_ret += val
+    elif cor == 'verde':
+        if val > 0: soma_verde_rem += val
+        else:       soma_verde_ret += val
 
 # ---------------------------------------------------------------
 # ABA "RESUMO" — contagem desta rodagem (igual ao VBA antigo)
