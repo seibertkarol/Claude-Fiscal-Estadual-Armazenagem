@@ -802,7 +802,7 @@ for pandas_idx, (cor, nnf, _) in pintura_p6.items():
 
 # Soma monetaria por cor (mesma logica do diagnostico mais abaixo)
 soma_rosa_rem = soma_rosa_ret = soma_laranja_rem = soma_laranja_ret = 0.0
-soma_amarelo_rem = soma_amarelo_ret = 0.0
+soma_amarelo_rem = soma_amarelo_ret = soma_verde_rem = soma_verde_ret = 0.0
 for pandas_idx, (cor, nnf, _) in pintura_p6.items():
     val = df_p6.at[pandas_idx, '_valor']
     if pd.isna(val): continue
