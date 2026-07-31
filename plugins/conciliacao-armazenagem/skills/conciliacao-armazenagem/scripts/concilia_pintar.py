@@ -576,7 +576,7 @@ for nnf in xmls_ordenados:
 # ---------------------------------------------------------------
 print("Passo 2/3: Algoritmo iterativo de cores (ponto fixo)...")
 
-FILL_MAP = {'rosa': FILL_ROSA, 'laranja': FILL_LARANJA, 'azul': FILL_AZUL, 'amarelo': FILL_AMARELO}
+FILL_MAP = {'rosa': FILL_ROSA, 'laranja': FILL_LARANJA, 'azul': FILL_AZUL, 'amarelo': FILL_AMARELO, 'verde': FILL_VERDE}
 pintura_p6 = {}   # pandas_idx -> (cor, nnf, criterio)
 
 # Estado inicial de cor dos retornos (pelo status da conciliacao)
