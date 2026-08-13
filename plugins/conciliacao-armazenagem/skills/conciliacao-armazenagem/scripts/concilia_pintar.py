@@ -469,14 +469,20 @@ for _, row in df_zsd.iterrows():
     if len(chave44) != 44: continue
     root = xml_roots_by_chave.get(chave44)
     if root is None: continue
-    # C1: extrai remessas referenciadas por este XML específico
+    # C1: extrai remessas referenciadas por este XML específico (refNFe tags)
     for el in root.findall('.//{%s}refNFe' % NS):
         chave_ref = (el.text or '').strip()
         if len(chave_ref) == 44:
             try:
                 nf_rem = int(chave_ref[25:34])
-                remessa_nf_para_doc_sap[nf_rem] = doc  # doc_sap deste retorno
+                remessa_nf_para_doc_sap[nf_rem] = doc
             except: pass
+    # Tambem extrai chaves de 44 digitos do infCpl/infAdProd
+    for tag in ['infCpl', 'infAdProd']:
+        for el in root.findall('.//{%s}%s' % (NS, tag)):
+            for nf_rem in extrair_chaves_44(el.text or ''):
+                if nf_rem not in remessa_nf_para_doc_sap:
+                    remessa_nf_para_doc_sap[nf_rem] = doc
 
 if remessa_nf_para_doc_sap:
     print(f"Remessas com DOC SAP específico mapeado: {len(remessa_nf_para_doc_sap)}")
