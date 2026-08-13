@@ -604,6 +604,133 @@ for nnf in xmls_ordenados:
     })
 
 # ---------------------------------------------------------------
+# PASSO 1b: C4 — MATCHING DIRETO (retornos que referenciam remessas
+# diretamente na planilha, sem XML correspondente)
+#
+# Muitas linhas de retorno sao ajustes manuais (AJ) que referenciam a
+# NF de remessa no campo Referencia ou Texto, mas NAO tem XML proprio.
+# O script ate agora so processa retornos que casam com um XML.
+# Este passo pega os retornos orfaos e tenta casa-los diretamente com
+# remessas na planilha6 pelo numero de NF referenciado.
+# ---------------------------------------------------------------
+print("\nPasso 1b: Matching direto (retornos sem XML)...")
+
+# Identifica retornos que referenciam NF de remessa e NAO tem XML
+retornos_orfaos_por_nf = {}  # nf_remessa -> [pandas_idx]
+retornos_orfaos_valor = {}   # nf_remessa -> soma dos valores
+
+for idx, row in df_p6.iterrows():
+    val = row['_valor']
+    if pd.isna(val) or val >= 0: continue
+
+    # Se este retorno ja foi processado via XML, pula
+    ja_processado = False
+    for nnf_xml, idxs_xml in p6_retorno_by_nfe.items():
+        if idx in idxs_xml and nnf_xml in xml_roots:
+            ja_processado = True
+            break
+    if ja_processado: continue
+
+    # Tenta extrair NF da referencia
+    ref = str(row.iloc[6]).strip()
+    nf_ref = None
+    if ref not in ('nan', 'None', ''):
+        nf_ref = extrair_nf_de_ref_nfw(ref)
+        if nf_ref is None:
+            nf_ref = extrair_num(ref)
+        if nf_ref is None:
+            m_txt = re.search(r'\b(\d{3,6})\b', ref)
+            if m_txt: nf_ref = int(m_txt.group(1))
+
+    # Tenta extrair NF do texto (col Texto)
+    if nf_ref is None or nf_ref not in p6_remessa_by_num:
+        texto = str(row.iloc[5]).strip()
+        for m_nf in re.finditer(r'NF[E]?\s*(\d+)', texto, re.IGNORECASE):
+            candidate = int(m_nf.group(1))
+            if candidate in p6_remessa_by_num:
+                nf_ref = candidate
+                break
+
+    if nf_ref is not None and nf_ref in p6_remessa_by_num and nf_ref not in xml_roots:
+        retornos_orfaos_por_nf.setdefault(nf_ref, []).append(idx)
+        retornos_orfaos_valor[nf_ref] = retornos_orfaos_valor.get(nf_ref, 0.0) + float(val)
+
+cnt_c4_zerou = 0
+cnt_c4_parcial = 0
+cnt_c4_linhas = 0
+
+for nf_rem, ret_idxs_c4 in retornos_orfaos_por_nf.items():
+    val_ret_c4 = retornos_orfaos_valor[nf_rem]
+    val_ret_abs_c4 = abs(val_ret_c4)
+    rem_idxs_c4 = p6_remessa_by_num.get(nf_rem, [])
+    val_rem_c4 = p6_remessa_valor.get(nf_rem, 0.0)
+
+    dif = val_ret_c4 + val_rem_c4
+    if abs(dif) <= 0.10:
+        status_c4 = 'ZEROU'
+        cnt_c4_zerou += 1
+        cnt['ZEROU'] = cnt.get('ZEROU', 0) + 1
+    else:
+        status_c4 = 'PARCIAL'
+        cnt_c4_parcial += 1
+        cnt['PARCIAL'] = cnt.get('PARCIAL', 0) + 1
+
+    # Usa NF negativa virtual para nao colidir com NFs de XML
+    nnf_virtual = -nf_rem
+
+    status_retorno[nnf_virtual] = status_c4
+    ret_rem_idxs[nnf_virtual] = rem_idxs_c4
+    ret_refs_usadas[nnf_virtual] = {nf_rem}
+    p6_retorno_by_nfe[nnf_virtual] = ret_idxs_c4
+
+    # Consome saldo se zerou
+    if status_c4 == 'ZEROU':
+        consumir_saldo({nf_rem}, val_ret_abs_c4, nnf_virtual)
+
+    # Mapeia remessa -> retorno
+    for idx_rem in rem_idxs_c4:
+        nota_ret_por_rem.setdefault(idx_rem, [])
+        if nnf_virtual not in nota_ret_por_rem[idx_rem]:
+            nota_ret_por_rem[idx_rem].append(nnf_virtual)
+
+    # Mapeia retorno -> retorno (para pintura)
+    for idx_ret in ret_idxs_c4:
+        nota_ret_por_rem.setdefault(idx_ret, [])
+        if nnf_virtual not in nota_ret_por_rem[idx_ret]:
+            nota_ret_por_rem[idx_ret].append(nnf_virtual)
+
+    cnt_c4_linhas += len(ret_idxs_c4) + len(rem_idxs_c4)
+
+    ic = '[OK]' if status_c4 == 'ZEROU' else '[~]'
+    log_result.append(
+        f'{ic} NF {nf_rem:>6} | {status_c4:<12} | C4:direto              '
+        f'| ret={len(ret_idxs_c4)} rem={len(rem_idxs_c4)} '
+        f'| R${val_ret_c4:,.2f} + R${val_rem_c4:,.2f}'
+    )
+
+    relatorio_rows.append({
+        'nnf': nf_rem,
+        'status': status_c4,
+        'criterio': 'C4:direto',
+        'n_remessas': len(rem_idxs_c4),
+        'val_retorno': val_ret_c4,
+        'val_remessas': val_rem_c4,
+        'diferenca': dif,
+        'referencias': str(nf_rem),
+        'vicms_xml': None,
+        'dif_icms': None,
+    })
+
+    # Data de lancamento do retorno (para preencher col J)
+    for idx_ret in ret_idxs_c4:
+        data_lanc = df_p6.iloc[idx_ret, COL_DATA_LANC]
+        if pd.notna(data_lanc):
+            nnf_data_lancamento[nnf_virtual] = data_lanc
+            break
+
+print(f"  C4: {len(retornos_orfaos_por_nf)} NFs ({cnt_c4_zerou} zerou, {cnt_c4_parcial} parcial, {cnt_c4_linhas} linhas)")
+
+# ---------------------------------------------------------------
 # PASSO 2+3: DETERMINA COR — ALGORITMO ITERATIVO (ponto fixo)
 #
 # Regra do ROSA:
