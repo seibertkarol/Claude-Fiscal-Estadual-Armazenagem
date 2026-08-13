@@ -102,12 +102,27 @@ JA_PROCESSADO_COLUNA = COLUNA_J_JA_EXISTE
 USANDO_RAZAO = ABA_PLANILHA6.strip().lower() == 'razao'
 
 COL_REFERENCIA   = 6                  # nunca desloca (fica antes da coluna I)
+
+# Detecta colunas pelo nome do cabecalho (robusto para layouts variados)
+_df_tmp = pd.read_excel(ARQUIVO, sheet_name=ABA_PLANILHA6, header=PANDAS_HEADER, nrows=0)
+def _achar_col_p6(df, *candidatos):
+    for cand in candidatos:
+        for i, col in enumerate(df.columns):
+            if cand.lower() in str(col).lower():
+                return i
+    return None
+
+_col_data_det = _achar_col_p6(_df_tmp, 'data de lan', 'data lan', 'data de lanc')
+_col_valor_det = _achar_col_p6(_df_tmp, 'valor em moeda', 'val.moeda', 'montante moeda')
+
 if USANDO_RAZAO:
-    COL_DATA_LANC = 9    # col J no razao (Data de lancamento)
-    COL_VALOR     = 15   # col P no razao
+    COL_DATA_LANC = _col_data_det if _col_data_det is not None else 9
+    COL_VALOR     = _col_valor_det if _col_valor_det is not None else 15
 else:
-    COL_DATA_LANC = 10 + COL_OFFSET
-    COL_VALOR     = 17 + COL_OFFSET
+    COL_DATA_LANC = _col_data_det if _col_data_det is not None else (10 + COL_OFFSET)
+    COL_VALOR     = _col_valor_det if _col_valor_det is not None else (17 + COL_OFFSET)
+
+print(f"Colunas detectadas: DATA_LANC=col{COL_DATA_LANC} ({_df_tmp.columns[COL_DATA_LANC] if COL_DATA_LANC < len(_df_tmp.columns) else '?'}) | VALOR=col{COL_VALOR} ({_df_tmp.columns[COL_VALOR] if COL_VALOR < len(_df_tmp.columns) else '?'})")
 
 print(f"Linha 1 {'JA E a linha de total' if LINHA1_E_TOTAL else 'NAO existe ainda (sera criada)'} | "
       f"Coluna DATA DO RETORNO {'JA EXISTE' if COLUNA_J_JA_EXISTE else 'NAO existe ainda (sera criada)'}.")
