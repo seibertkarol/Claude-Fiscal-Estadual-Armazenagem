@@ -440,6 +440,7 @@ for fname in sorted(os.listdir(XML_DIR)):
     # Por NF: usa o primeiro encontrado (o algoritmo principal usa este)
     if nnf not in xml_roots:
         refs = set()
+        # C1: refNFe tags (chave eletronica direta)
         for el in root.findall('.//{%s}refNFe' % NS):
             chave = (el.text or '').strip()
             if len(chave) == 44:
