@@ -302,15 +302,32 @@ EXPORT_CTX = ['NFE DE EXPORTACAO','NF DE EXPORTACAO','GUIA DE SAIDA',
 PREFIXOS   = ['NOTAS FISCAIS','NOTA FISCAL','NOTAS','NOTA',
               'PESOS:','PESO:','NFE','NF','N:','N ']
 
+def extrair_chaves_44(txt):
+    """Extrai NFs de chaves de acesso de 44 digitos encontradas em texto livre.
+    Posicoes [25:34] da chave contem o numero da NF."""
+    if not txt: return set()
+    nums = set()
+    for m in re.finditer(r'\d{44}', txt):
+        chave = m.group(0)
+        try:
+            nf = int(chave[25:34])
+            if nf > 0:
+                nums.add(nf)
+        except: pass
+    return nums
+
 def extrair_nums_texto(txt):
     """
     Extrai numeros de NF referenciados em texto livre (infCpl/xTexto).
     Captura LISTAS de numeros separados por virgula e/ou "E"
     (ex: "NOTAS FISCAIS 66377, 66384 E 66389" -> 66377, 66384, 66389),
     nao apenas o primeiro numero apos o prefixo.
+    Tambem extrai NFs de chaves de acesso de 44 digitos no texto.
     """
     if not txt: return set()
     nums, tu = set(), txt.upper()
+    # Chaves de acesso de 44 digitos (posicoes [25:34] = NF)
+    nums |= extrair_chaves_44(txt)
     for m in re.finditer(r'(\d{5,9})-00[123]', txt):
         nums.add(int(m.group(1)))
     for pref in PREFIXOS:
