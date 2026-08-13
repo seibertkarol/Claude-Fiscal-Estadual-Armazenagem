@@ -749,7 +749,8 @@ pintura_p6 = {}   # pandas_idx -> (cor, nnf, criterio)
 
 # Estado inicial de cor dos retornos (pelo status da conciliacao)
 cor_retorno = {}   # nnf -> 'rosa'|'laranja'|'azul'|'amarelo'
-for nnf in xmls_ordenados:
+todos_retornos_processados = list(xmls_ordenados) + sorted(retornos_orfaos_por_nf.keys(), key=lambda nf: -nf)
+for nnf in status_retorno:
     st = status_retorno.get(nnf)
     if st in ('SEM_RAZAO', None): continue
     cor_retorno[nnf] = {
@@ -758,7 +759,7 @@ for nnf in xmls_ordenados:
     }.get(st, 'laranja')
 
 # Registra retornos nas linhas de retorno da Planilha6
-for nnf in xmls_ordenados:
+for nnf in cor_retorno:
     if nnf not in cor_retorno: continue
     for idx in p6_retorno_by_nfe.get(nnf, []):
         nota_ret_por_rem.setdefault(idx, [])
