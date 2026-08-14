@@ -585,9 +585,22 @@ for nnf in xmls_ordenados:
     # divergencia (lancamento errado, corrigido depois por uma linha de
     # ajuste separada), NAO deixamos pintar de rosa mesmo que a soma feche —
     # marcamos como DIVERGENTE_ICMS (cor amarela) para revisao manual.
+    #
+    # EXCECAO: quando o retorno tem chave 44 confirmando a remessa (C1 refNFe
+    # ou chave no infCpl) E o casamento zerou matematicamente com essa remessa,
+    # aceitamos como ROSA mesmo com ICMS divergente. Isso trata o padrao de
+    # "duplo lancamento" comum em planilhas multi-linha por material: o SAP
+    # lanca tanto o valor da REMESSA original (para reverter a saida) quanto
+    # o valor do RETORNO (para aplicar o recebimento). A soma bate com a
+    # remessa mas o vICMS do XML corresponde so a metade — a linha rosa
+    # ainda soma R$0 no filtro rosa, garantia matematica preservada.
     TOLERANCIA_ICMS = 0.10  # ate 10 centavos de diferenca e considerado igual
     vicms_xml = nnf_vicms_xml.get(nnf)
-    if vicms_xml is not None and vicms_xml > 0.05 and abs(vicms_xml - val_ret_abs) > TOLERANCIA_ICMS:
+    refs_chave44_desse = refs_chave44_por_retorno.get(nnf, set())
+    matched_via_chave44 = bool(refs_chave44_desse & refs_found)
+    if (vicms_xml is not None and vicms_xml > 0.05
+            and abs(vicms_xml - val_ret_abs) > TOLERANCIA_ICMS
+            and not (matched_via_chave44 and status == 'ZEROU')):
         status = 'DIVERGENTE_ICMS'
         cnt.setdefault('DIVERGENTE_ICMS', 0)
         cnt['DIVERGENTE_ICMS'] += 1
