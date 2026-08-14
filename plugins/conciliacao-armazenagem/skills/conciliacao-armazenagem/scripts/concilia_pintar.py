@@ -441,13 +441,23 @@ for fname in sorted(os.listdir(XML_DIR)):
     # Por NF: usa o primeiro encontrado (o algoritmo principal usa este)
     if nnf not in xml_roots:
         refs = set()
+        refs_chave44 = set()  # remessas confirmadas por chave 44 (C1 ou infCpl)
         # C1: refNFe tags (chave eletronica direta)
         for el in root.findall('.//{%s}refNFe' % NS):
             chave = (el.text or '').strip()
             if len(chave) == 44:
-                try: refs.add(int(chave[25:34]))
+                try:
+                    nf_rem = int(chave[25:34])
+                    refs.add(nf_rem)
+                    refs_chave44.add(nf_rem)
                 except: pass
+        # Chaves de 44 digitos no infCpl/infAdProd (referencia direta em texto)
+        for tag in ['infCpl', 'infAdProd']:
+            for el in root.findall('.//{%s}%s' % (NS, tag)):
+                for nf_rem in extrair_chaves_44(el.text or ''):
+                    refs_chave44.add(nf_rem)
         refs_por_retorno[nnf] = refs
+        refs_chave44_por_retorno[nnf] = refs_chave44
         xml_roots[nnf] = root
 
     vicms_el = root.find('.//{%s}ICMSTot/{%s}vICMS' % (NS, NS))
