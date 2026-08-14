@@ -416,6 +416,7 @@ if _zsd_col_chave is not None:
 # Guarda por chave44 (sempre único) E por nnf (pode sobrescrever em NFs duplicadas)
 # ---------------------------------------------------------------
 refs_por_retorno = {}
+refs_chave44_por_retorno = {}   # nnf -> set(NFs de remessa achadas via chave 44 confiavel)
 xml_roots = {}
 xml_roots_by_chave = {}   # chave44 -> root (nunca sobrescreve)
 xml_chave_to_nnf  = {}    # chave44 -> nnf
