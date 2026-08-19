@@ -570,6 +570,15 @@ for nnf in xmls_ordenados:
             rem_idxs, val_rem, refs_found = buscar_remessas(refs_c3, val_ret_abs)
             if rem_idxs: criterio = 'C3:infCpl+xTexto'
 
+    # C4: xProd (descricao do produto — ex: "NF-E DE ORIGEM 88375")
+    if not rem_idxs:
+        refs_c4 = set()
+        for el in root.findall('.//{%s}xProd' % NS):
+            refs_c4 |= extrair_nums_texto(el.text or '')
+        if refs_c4:
+            rem_idxs, val_rem, refs_found = buscar_remessas(refs_c4, val_ret_abs)
+            if rem_idxs: criterio = 'C4:xProd'
+
     # Classifica status
     if not rem_idxs:
         status = 'SEM_REMESSA'; cnt['SEM_REMESSA'] += 1
