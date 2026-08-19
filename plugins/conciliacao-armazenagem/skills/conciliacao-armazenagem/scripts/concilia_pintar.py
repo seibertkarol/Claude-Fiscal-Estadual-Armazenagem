@@ -1035,6 +1035,43 @@ ws_laranja.freeze_panes = 'A2'
 print(f"Aba '{NOME_ABA_LARANJA}' criada com {len(casos_revisao)} casos para revisao "
       f"(ordenados por diferenca, maiores primeiro).")
 
+# ---------------------------------------------------------------
+# ABA "XML sem Retorno" — XMLs com vICMS > 0 que nao tem retorno na Planilha6
+# ---------------------------------------------------------------
+NOME_ABA_SEM_RETORNO = 'XML sem Retorno'
+if NOME_ABA_SEM_RETORNO in wb.sheetnames:
+    del wb[NOME_ABA_SEM_RETORNO]
+
+xmls_sem_retorno_com_icms = []
+for nnf in xmls_ordenados:
+    if status_retorno.get(nnf) != 'SEM_RAZAO': continue
+    vicms = nnf_vicms_xml.get(nnf, 0.0) or 0.0
+    if vicms > 0.05:
+        xmls_sem_retorno_com_icms.append({'nnf': nnf, 'vicms': vicms})
+
+if xmls_sem_retorno_com_icms:
+    ws_sem_ret = wb.create_sheet(NOME_ABA_SEM_RETORNO, 2)
+    cabecalho_sr = ['NF Retorno (XML)', 'vICMS no XML', 'Observação']
+    for col, titulo in enumerate(cabecalho_sr, start=1):
+        c = ws_sem_ret.cell(row=1, column=col, value=titulo)
+        c.font = font_header
+        c.fill = fill_header
+    fill_alerta = PatternFill('solid', fgColor='FF6666')
+    for i, r in enumerate(xmls_sem_retorno_com_icms, start=2):
+        ws_sem_ret.cell(row=i, column=1, value=r['nnf'])
+        c2 = ws_sem_ret.cell(row=i, column=2, value=round(r['vicms'], 2))
+        c2.number_format = '#,##0.00'
+        ws_sem_ret.cell(row=i, column=3, value='ICMS no XML sem lançamento no razão')
+        for col in range(1, 4):
+            ws_sem_ret.cell(row=i, column=col).fill = fill_alerta
+    ws_sem_ret.column_dimensions['A'].width = 18
+    ws_sem_ret.column_dimensions['B'].width = 16
+    ws_sem_ret.column_dimensions['C'].width = 40
+    ws_sem_ret.freeze_panes = 'A2'
+    print(f"Aba '{NOME_ABA_SEM_RETORNO}' criada com {len(xmls_sem_retorno_com_icms)} XMLs COM ICMS sem retorno no razao.")
+else:
+    print(f"Nenhum XML sem retorno com ICMS > 0 — aba '{NOME_ABA_SEM_RETORNO}' nao criada.")
+
 # Gera nome de saida automaticamente, sem sobrescrever rodagens anteriores
 # e sem travar se uma versao anterior estiver aberta no Excel
 base_output = ARQUIVO.replace('.xlsx', '_CONCILIADO')
