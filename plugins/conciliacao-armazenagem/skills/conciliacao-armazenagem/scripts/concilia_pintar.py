@@ -300,7 +300,7 @@ saldo_consumers = defaultdict(list)   # nf_num -> [nnf_retorno, ...]
 EXPORT_CTX = ['NFE DE EXPORTACAO','NF DE EXPORTACAO','GUIA DE SAIDA',
               'NAVIO','CONTAINER','BOOKING','CROSSDOCKING','DESTINO:','RES:']
 PREFIXOS   = ['NOTAS FISCAIS','NOTA FISCAL','NOTAS','NOTA',
-              'PESOS:','PESO:','NFE','NF','N:','N ']
+              'DE ORIGEM','PESOS:','PESO:','NFE','NF','N:','N ']
 
 def extrair_chaves_44(txt):
     """Extrai NFs de chaves de acesso de 44 digitos encontradas em texto livre.
