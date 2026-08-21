@@ -1,0 +1,8 @@
+{
+  "name": "conciliacao-anulacoes",
+  "description": "Conciliação de anulações da SLC Agrícola — pareia notas de anulação (-002) com as notas de origem que elas anulam.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Karoline Santos"
+  }
+}
